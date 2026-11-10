@@ -167,6 +167,16 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   animation: ring 0.45s ease-out forwards;
 }
 
+.penalty {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--bad);
+  text-shadow: 0 0 10px rgba(255,90,95,.6);
+  animation: float-up .8s ease-out forwards;
+  white-space: nowrap;
+}
 .float {
   position: absolute;
   transform: translate(-50%, -50%);

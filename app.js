@@ -6,6 +6,7 @@
 
   // ---------- Konstanten ----------
   const TOTAL_MS = 5000;
+  const PENALTY_MS = 500;   // Abzug fürs Tippen neben einen Kreis
   const MAX_CIRCLES = 10;
   const STORE_BEST = 'ten.best';
   const STORE_MUTED = 'ten.muted';
@@ -17,8 +18,8 @@
   const ui = {
     taskNo: $('taskNo'), score: $('score'), countdown: $('countdown'), timefill: $('timefill'),
     btnPause: $('btnPause'), btnSound: $('btnSound'),
-    scrStart: $('scrStart'), scrLevel: $('scrLevel'), scrPause: $('scrPause'), scrEnd: $('scrEnd'),
-    bestStart: $('bestStart'), levelDots: $('levelDots'), levelTitle: $('levelTitle'), levelText: $('levelText'),
+    scrStart: $('scrStart'), scrPause: $('scrPause'), scrEnd: $('scrEnd'),
+    bestStart: $('bestStart'),
     finalScore: $('finalScore'), endKicker: $('endKicker'), endSub: $('endSub'), endBest: $('endBest'),
     levelStats: $('levelStats')
   };
@@ -53,8 +54,9 @@
   function diameterFor(task, s) {
     const { n, t } = task;
     let a, b;
-    if (n === 1) { a = 150; b = 64; }
-    else if (n <= 3) { a = 140; b = 78; }
+    if (n === 1) { a = 110; b = 58; }
+    else if (n === 2) { a = 110; b = 72; }
+    else if (n === 3) { a = 140; b = 78; }
     else if (n <= 6) { a = 130; b = 82; }
     else { a = 120; b = 84; }
     return lerp(a, b, t) * s;
@@ -242,7 +244,7 @@
   const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
 
   function show(screen) {
-    [ui.scrStart, ui.scrLevel, ui.scrPause, ui.scrEnd].forEach((s) => { s.hidden = s !== screen; });
+    [ui.scrStart, ui.scrPause, ui.scrEnd].forEach((s) => { s.hidden = s !== screen; });
   }
 
   function setCountdownIdle(text) {
@@ -332,42 +334,20 @@
     setCountdownIdle('0');
     ui.timefill.style.transform = 'scaleX(0)';
     Sound.miss();
-    later(nextTask, 750);
+    later(() => endGame(true), 1100);
   }
 
   function nextTask() {
     idx++;
-    if (idx >= PLAN.length) { endGame(); return; }
-    if (PLAN[idx].n !== PLAN[idx - 1].n) showLevelIntro(PLAN[idx].n);
-    else startTask();
+    if (idx >= PLAN.length) { endGame(false); return; }
+    if (PLAN[idx].n !== PLAN[idx - 1].n) {
+      // neue Stufe: kurzer Klang, etwas längere Pause, kein Zwischenbildschirm
+      Sound.levelUp();
+      later(startTask, 350);
+    } else startTask();
   }
 
-  function showLevelIntro(n) {
-    phase = 'intro';
-    circlesEl.innerHTML = '';
-    circles = [];
-    setCountdownIdle(String(n * 10));
-    ui.timefill.style.transform = 'scaleX(0)';
-    ui.levelDots.innerHTML = '';
-    for (let i = 0; i < n; i++) {
-      const s = document.createElement('span');
-      s.style.color = 'hsl(' + hueFor(i, n) + ' 90% 62%)';
-      s.style.animationDelay = (i * 50) + 'ms';
-      ui.levelDots.appendChild(s);
-    }
-    ui.levelTitle.textContent = n + ' Kreise';
-    let text;
-    if (n === 2) text = 'Ab jetzt gilt: alle Kreise gleichzeitig berühren – und sonst nichts. Pro Aufgabe gibt es bis zu 20 Punkte.';
-    else if (n === 4) text = '4 Kreise, bis zu 40 Punkte. Falls das iPad jetzt Gesten auslöst: Multitasking-Gesten in den Einstellungen ausschalten.';
-    else if (n === 6) text = 'Nimm beide Hände! 6 Kreise, bis zu 60 Punkte.';
-    else if (n === 10) text = 'Alle zehn Finger! Bis zu 100 Punkte pro Aufgabe.';
-    else text = n + ' Kreise gleichzeitig, bis zu ' + (n * 10) + ' Punkte pro Aufgabe.';
-    ui.levelText.textContent = text;
-    show(ui.scrLevel);
-    Sound.levelUp();
-  }
-
-  function endGame() {
+  function endGame(timedOut) {
     state = 'ended';
     phase = 'idle';
     clearTimers();
@@ -378,13 +358,17 @@
     ui.timefill.style.transform = 'scaleX(0)';
     const best = parseInt(store.get(STORE_BEST, '0'), 10) || 0;
     ui.finalScore.textContent = String(score);
-    ui.endSub.textContent = 'von ' + MAX_SCORE + ' möglichen Punkten';
-    if (score > best) {
+    const reachedLevel = PLAN[Math.min(idx, PLAN.length - 1)].n;
+    ui.endSub.textContent = timedOut
+      ? 'Zeit abgelaufen bei Aufgabe ' + (idx + 1) + ' von ' + PLAN.length + ' (' + reachedLevel + (reachedLevel === 1 ? ' Kreis' : ' Kreise') + ')'
+      : 'Alle ' + PLAN.length + ' Aufgaben geschafft – von ' + MAX_SCORE + ' möglichen Punkten';
+    const record = score > best;
+    if (record) {
       store.set(STORE_BEST, score);
       ui.endKicker.textContent = 'Neuer Rekord!';
       ui.endBest.textContent = best > 0 ? 'Bisheriger Rekord: ' + best : '';
     } else {
-      ui.endKicker.textContent = 'Geschafft!';
+      ui.endKicker.textContent = timedOut ? 'Zeit abgelaufen' : 'Geschafft!';
       ui.endBest.textContent = 'Rekord: ' + best;
     }
     ui.levelStats.innerHTML = '';
@@ -394,11 +378,11 @@
       cell.className = 'lv';
       cell.innerHTML = '<span class="lv-n">' + (i + 1) + (i === 0 ? ' Kreis' : ' Kreise') + '</span>' +
         '<span class="lv-bar"><i style="width:' + pct + '%"></i></span>' +
-        '<span class="lv-p">' + v + '</span>';
+        '<span class="lv-p">' + (i + 1 > reachedLevel ? '–' : v) + '</span>';
       ui.levelStats.appendChild(cell);
     });
     show(ui.scrEnd);
-    Sound.fanfare();
+    if (record || !timedOut) Sound.fanfare();
   }
 
   function pauseGame() {
@@ -451,6 +435,13 @@
     el.style.left = x + 'px';
     el.style.top = y + 'px';
     fxEl.appendChild(el);
+    const txt = document.createElement('div');
+    txt.className = 'penalty';
+    txt.textContent = '−0,5 s';
+    txt.style.left = clamp(x, 50, field.clientWidth - 50) + 'px';
+    txt.style.top = Math.max(30, y - 50) + 'px';
+    fxEl.appendChild(txt);
+    setTimeout(() => txt.remove(), 800);
     setTimeout(() => el.remove(), 600);
   }
 
@@ -515,7 +506,11 @@
       for (const p of changed) {
         const i = circleAt(p.x, p.y);
         if (i >= 0) Sound.blip(i);
-        else { badTouch(p.x, p.y); Sound.bad(); }
+        else {
+          taskStart -= PENALTY_MS;
+          badTouch(p.x, p.y);
+          Sound.bad();
+        }
       }
     }
     if (evaluate(current)) success(performance.now());
@@ -571,12 +566,6 @@
   $('btnStart').addEventListener('click', startGame);
   $('btnAgain').addEventListener('click', startGame);
   $('btnHome').addEventListener('click', quitGame);
-  $('btnLevelGo').addEventListener('click', () => {
-    Sound.init();
-    show(null);
-    phase = 'between';
-    later(startTask, 350);
-  });
   ui.btnPause.addEventListener('click', pauseGame);
   $('btnResume').addEventListener('click', resumeGame);
   $('btnQuit').addEventListener('click', quitGame);
