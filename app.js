@@ -492,7 +492,7 @@
       return { x: p.x, y: p.y, el };
     });
     stale = new Set(currentIds);
-    ui.taskNo.textContent = idx < PLAN.length ? (idx + 1) + ' / ' + PLAN.length : String(idx + 1);
+    ui.taskNo.textContent = String(idx + 1);
     ui.countdown.classList.remove('idle');
     shownPts = -1;
     taskStart = performance.now();
@@ -562,8 +562,8 @@
     const reachedLevel = taskAt(idx).n;
     const extra = taskAt(idx).extra || 0;
     ui.endSub.textContent = extra
-      ? 'Zeit abgelaufen in der ' + extra + '. Zusatzrunde mit 10 Fingern (Aufgabe ' + (idx + 1) + ')'
-      : 'Zeit abgelaufen bei Aufgabe ' + (idx + 1) + ' (' + reachedLevel + (reachedLevel === 1 ? ' Kreis' : ' Kreise') + ')';
+      ? 'Zeit abgelaufen in Level ' + (idx + 1) + ' (10 Kreise, ' + extra + '. Zusatzrunde)'
+      : 'Zeit abgelaufen in Level ' + (idx + 1) + ' (' + reachedLevel + (reachedLevel === 1 ? ' Kreis' : ' Kreise') + ')';
     const record = score > 0 && score > best;
     ui.endKicker.textContent = record ? 'Neuer Rekord!' : (timedOut ? 'Zeit abgelaufen' : 'Geschafft!');
     pendingScore = qualifies(score, scores) ? { score, date: new Date().toISOString() } : null;
@@ -837,7 +837,6 @@
   // ---------- Buttons ----------
   $('btnStart').addEventListener('click', startGame);
   $('btnAgain').addEventListener('click', startGame);
-  $('btnHome').addEventListener('click', quitGame);
   ui.btnPause.addEventListener('click', pauseGame);
   $('btnResume').addEventListener('click', resumeGame);
   $('btnQuit').addEventListener('click', quitGame);
