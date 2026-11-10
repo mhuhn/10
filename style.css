@@ -324,6 +324,44 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .lv-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--pink)); }
 .lv-p { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
+/* Highscores */
+.name-form {
+  width: 100%;
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  padding: 14px; box-sizing: border-box;
+  border-radius: 16px;
+  background: rgba(46, 230, 214, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(46, 230, 214, 0.25);
+}
+.name-form label { font-size: 16px; color: var(--ink); font-weight: 600; }
+.name-row { display: flex; gap: 8px; width: 100%; max-width: 420px; }
+.name-row input {
+  flex: 1; min-width: 0;
+  height: 48px; padding: 0 14px;
+  border-radius: 12px; border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.25); color: var(--ink);
+  font: inherit; font-size: 18px;
+  -webkit-user-select: text; user-select: text;
+}
+.name-row input:focus { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.btn.small { min-width: 0; min-height: 48px; padding: 0 18px; font-size: 16px; border-radius: 12px; }
+.btn:disabled { opacity: .45; }
+.hs-title { margin: 8px 0 0; font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.hs { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-variant-numeric: tabular-nums; }
+.hs th { font-size: 12px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; padding: 0 10px 2px; }
+.hs td { background: rgba(255,255,255,0.05); padding: 10px; font-size: 17px; }
+.hs td:first-child { border-radius: 10px 0 0 10px; }
+.hs td:last-child { border-radius: 0 10px 10px 0; }
+.hs .hs-rank { width: 2ch; text-align: center; color: var(--ink-3); }
+.hs .hs-name { text-align: left; overflow-wrap: anywhere; }
+.hs td.hs-name { font-weight: 600; }
+.hs .hs-score { text-align: right; }
+.hs td.hs-score { font-weight: 700; }
+.hs .hs-date { text-align: right; white-space: nowrap; }
+.hs td.hs-date { color: var(--ink-2); font-size: 15px; }
+.hs tr.me td { background: rgba(46, 230, 214, 0.16); color: #fff; }
+.hs tr.me .hs-rank { color: var(--cyan); }
+
 @media (max-width: 520px) {
   .levels { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
   .final { font-size: 72px; }

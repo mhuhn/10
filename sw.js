@@ -1,6 +1,6 @@
 // Service Worker: App-Shell offline verfügbar machen.
 // Bei Änderungen an den Dateien VERSION hochzählen.
-const VERSION = 'ten-v5';
+const VERSION = 'ten-v6';
 const FILES = [
   './',
   'index.html',

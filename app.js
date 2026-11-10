@@ -8,7 +8,9 @@
   const TOTAL_MS = 5000;
   const PENALTY_MS = 500;   // Abzug fürs Tippen neben einen Kreis
   const MAX_CIRCLES = 10;
-  const STORE_BEST = 'ten.best';
+  const STORE_SCORES = 'ten.highscores';
+  const STORE_NAME = 'ten.lastName';
+  const TOP_N = 5;
   const STORE_MUTED = 'ten.muted';
 
   const $ = (id) => document.getElementById(id);
@@ -20,8 +22,9 @@
     btnPause: $('btnPause'), btnSound: $('btnSound'),
     scrStart: $('scrStart'), scrPause: $('scrPause'), scrEnd: $('scrEnd'),
     bestStart: $('bestStart'),
-    finalScore: $('finalScore'), endKicker: $('endKicker'), endSub: $('endSub'), endBest: $('endBest'),
-    levelStats: $('levelStats')
+    finalScore: $('finalScore'), endKicker: $('endKicker'), endSub: $('endSub'),
+    nameForm: $('nameForm'), nameInput: $('nameInput'), btnSave: $('btnSave'),
+    hsBody: $('hsBody'), hsTable: $('hsTable'), hsEmpty: $('hsEmpty')
   };
 
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -446,8 +449,8 @@
   }
 
   function updateBestLabel() {
-    const best = parseInt(store.get(STORE_BEST, '0'), 10) || 0;
-    ui.bestStart.textContent = best > 0 ? 'Rekord: ' + best + ' Punkte' : '';
+    const top = loadScores()[0];
+    ui.bestStart.textContent = top ? 'Rekord: ' + top.score + ' Punkte von ' + top.name : '';
   }
 
   // ---------- Ablauf ----------
@@ -552,35 +555,94 @@
     ui.btnPause.hidden = true;
     setCountdownIdle('–');
     ui.timefill.style.transform = 'scaleX(0)';
-    const best = parseInt(store.get(STORE_BEST, '0'), 10) || 0;
+    const scores = loadScores();
+    const best = scores.length ? scores[0].score : 0;
     ui.finalScore.textContent = String(score);
     const reachedLevel = taskAt(idx).n;
     const extra = taskAt(idx).extra || 0;
     ui.endSub.textContent = extra
       ? 'Zeit abgelaufen in der ' + extra + '. Zusatzrunde mit 10 Fingern (Aufgabe ' + (idx + 1) + ')'
       : 'Zeit abgelaufen bei Aufgabe ' + (idx + 1) + ' (' + reachedLevel + (reachedLevel === 1 ? ' Kreis' : ' Kreise') + ')';
-    const record = score > best;
-    if (record) {
-      store.set(STORE_BEST, score);
-      ui.endKicker.textContent = 'Neuer Rekord!';
-      ui.endBest.textContent = best > 0 ? 'Bisheriger Rekord: ' + best : '';
-    } else {
-      ui.endKicker.textContent = timedOut ? 'Zeit abgelaufen' : 'Geschafft!';
-      ui.endBest.textContent = 'Rekord: ' + best;
+    const record = score > 0 && score > best;
+    ui.endKicker.textContent = record ? 'Neuer Rekord!' : (timedOut ? 'Zeit abgelaufen' : 'Geschafft!');
+    pendingScore = qualifies(score, scores) ? { score, date: new Date().toISOString() } : null;
+    ui.nameForm.hidden = !pendingScore;
+    if (pendingScore) {
+      ui.nameInput.value = store.get(STORE_NAME, '');
+      syncSaveBtn();
     }
-    ui.levelStats.innerHTML = '';
-    levelScore.forEach((v, i) => {
-      const pct = Math.min(100, Math.round((v / LEVEL_MAX[i]) * 100));
-      const cell = document.createElement('div');
-      cell.className = 'lv';
-      cell.innerHTML = '<span class="lv-n">' + (i + 1) + (i === 0 ? ' Kreis' : ' Kreise') + '</span>' +
-        '<span class="lv-bar"><i style="width:' + pct + '%"></i></span>' +
-        '<span class="lv-p">' + (i + 1 > reachedLevel ? '–' : v) + '</span>';
-      ui.levelStats.appendChild(cell);
-    });
+    renderScores(scores, -1);
     show(ui.scrEnd);
     if (record || !timedOut) Sound.fanfare();
   }
+
+  // ---------- Highscores (lokal, Top 5) ----------
+  let pendingScore = null;
+
+  function loadScores() {
+    try {
+      const list = JSON.parse(store.get(STORE_SCORES, '[]'));
+      return Array.isArray(list) ? list.filter((e) => e && typeof e.score === 'number').slice(0, TOP_N) : [];
+    } catch (e) { return []; }
+  }
+
+  function qualifies(sc, list) {
+    return sc > 0 && (list.length < TOP_N || sc > list[list.length - 1].score);
+  }
+
+  const cleanName = (v) => v.replace(/\s+/g, '').slice(0, 16);
+
+  function formatDate(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  function renderScores(list, highlight) {
+    ui.hsBody.innerHTML = '';
+    list.forEach((e, i) => {
+      const tr = document.createElement('tr');
+      if (i === highlight) tr.className = 'me';
+      [String(i + 1), e.name, String(e.score), formatDate(e.date)].forEach((txt, c) => {
+        const td = document.createElement('td');
+        td.textContent = txt;
+        td.className = ['hs-rank', 'hs-name', 'hs-score', 'hs-date'][c];
+        tr.appendChild(td);
+      });
+      ui.hsBody.appendChild(tr);
+    });
+    ui.hsTable.hidden = list.length === 0;
+    ui.hsEmpty.hidden = list.length > 0;
+  }
+
+  function syncSaveBtn() {
+    ui.btnSave.disabled = cleanName(ui.nameInput.value).length === 0;
+  }
+
+  function saveScore(ev) {
+    if (ev) ev.preventDefault();
+    if (!pendingScore) return;
+    const name = cleanName(ui.nameInput.value);
+    if (!name) return;
+    store.set(STORE_NAME, name);
+    const entry = { name, score: pendingScore.score, date: pendingScore.date };
+    const list = loadScores();
+    list.push(entry);
+    list.sort((a, b) => b.score - a.score || a.date.localeCompare(b.date));
+    const top = list.slice(0, TOP_N);
+    store.set(STORE_SCORES, JSON.stringify(top));
+    pendingScore = null;
+    ui.nameForm.hidden = true;
+    ui.nameInput.blur();
+    renderScores(top, top.indexOf(entry));
+    updateBestLabel();
+  }
+
+  ui.nameInput.addEventListener('input', () => {
+    const cleaned = cleanName(ui.nameInput.value);
+    if (cleaned !== ui.nameInput.value) ui.nameInput.value = cleaned;
+    syncSaveBtn();
+  });
+  ui.nameForm.addEventListener('submit', saveScore);
 
   function pauseGame() {
     if (state !== 'playing' || phase === 'paused' || phase === 'intro') return;

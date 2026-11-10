@@ -81,8 +81,20 @@
     <p class="kicker" id="endKicker">Geschafft!</p>
     <div class="final" id="finalScore">0</div>
     <p class="lead" id="endSub"></p>
-    <p class="best" id="endBest"></p>
-    <div class="levels" id="levelStats"></div>
+    <form id="nameForm" class="name-form" hidden autocomplete="off">
+      <label for="nameInput">Du bist in den Top 5! Dein Name:</label>
+      <div class="name-row">
+        <input id="nameInput" type="text" maxlength="16" placeholder="Name ohne Leerzeichen"
+               autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done" required>
+        <button id="btnSave" class="btn primary small" type="submit">Eintragen</button>
+      </div>
+    </form>
+    <h3 class="hs-title">Highscores</h3>
+    <table class="hs" id="hsTable">
+      <thead><tr><th class="hs-rank">#</th><th class="hs-name">Name</th><th class="hs-score">Punkte</th><th class="hs-date">Datum</th></tr></thead>
+      <tbody id="hsBody"></tbody>
+    </table>
+    <p class="best" id="hsEmpty" hidden>Noch keine Einträge.</p>
     <button id="btnAgain" class="btn primary">Nochmal</button>
     <button id="btnHome" class="btn ghost">Zum Start</button>
   </div>
