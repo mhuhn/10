@@ -176,6 +176,8 @@
       if (!this.ctx) {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return;
+        // iOS/iPadOS-Safari: Web Audio sonst stumm, wenn der Stumm-Modus aktiv ist
+        try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* ältere Versionen */ }
         const ctx = new AC();
         const master = ctx.createGain();
         master.gain.value = 0.7;
@@ -192,7 +194,15 @@
         comp.connect(bus); bus.connect(ctx.destination);
         this.ctx = ctx; this.out = master; this.comp = comp; this.bus = bus;
       }
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      this.wake();
+    },
+    // Safari kennt neben 'suspended' auch 'interrupted' (z. B. nach Anrufen oder App-Wechsel)
+    wake() {
+      if (!this.ctx) return Promise.resolve();
+      if (this.ctx.state !== 'running') {
+        try { return this.ctx.resume().catch(() => {}); } catch (e) { return Promise.resolve(); }
+      }
+      return Promise.resolve();
     },
     setMuted(m) {
       this.muted = m;
@@ -261,9 +271,14 @@
       const ctx = Sound.ctx;
       if (!ctx) return false;
       if (!this.out) {
+        // out = Summe aller Stimmen → level (Lautstärke je Intensität) → fade (Ein-/Ausblenden)
         this.out = ctx.createGain();
-        this.out.gain.value = 0.0001;
-        this.out.connect(Sound.comp);
+        this.level = ctx.createGain();
+        this.fade = ctx.createGain();
+        this.out.gain.value = 1;
+        this.level.gain.value = this.volume();
+        this.fade.gain.value = 0;
+        this.out.connect(this.level); this.level.connect(this.fade); this.fade.connect(Sound.comp);
         const len = ctx.sampleRate;
         this.noise = ctx.createBuffer(1, len, ctx.sampleRate);
         const data = this.noise.getChannelData(0);
@@ -272,35 +287,44 @@
       return true;
     },
     volume() { return lerp(0.35, 0.9, this.intensity); },
+    rampTo(param, value, secs) {
+      const now = Sound.ctx.currentTime;
+      const cur = param.value;
+      param.cancelScheduledValues(now);
+      param.setValueAtTime(cur, now);
+      param.linearRampToValueAtTime(value, now + secs);
+    },
     start() {
       if (!this.ensure() || this.playing) return;
-      const ctx = Sound.ctx, now = ctx.currentTime;
-      this.out.gain.cancelScheduledValues(now);
-      this.out.gain.setValueAtTime(0.0001, now);
-      this.out.gain.linearRampToValueAtTime(this.volume(), now + 3);
+      this.playing = true;
       this.bpm = this.targetBpm;
       this.step = 0;
-      this.nextTime = now + 0.15;
-      this.playing = true;
       clearInterval(this.timer);
-      this.timer = setInterval(() => this.tick(), 25);
+      // erst loslegen, wenn der AudioContext wirklich läuft (Safari startet ihn asynchron)
+      Sound.wake().then(() => {
+        if (!this.playing) return;
+        this.rampTo(this.fade.gain, 1, 3);
+        this.nextTime = Sound.ctx.currentTime + 0.15;
+        clearInterval(this.timer);
+        this.timer = setInterval(() => this.tick(), 25);
+      });
     },
     stop(fade = 1.5) {
       if (!this.playing || !this.out) return;
-      const ctx = Sound.ctx, now = ctx.currentTime;
       this.playing = false;
-      this.out.gain.cancelScheduledValues(now);
-      this.out.gain.setValueAtTime(this.out.gain.value, now);
-      this.out.gain.linearRampToValueAtTime(0.0001, now + fade);
+      this.rampTo(this.fade.gain, 0, fade);
       setTimeout(() => { if (!this.playing) clearInterval(this.timer); }, fade * 1000 + 100);
     },
     setIntensity(x) {
       this.intensity = clamp(x, 0, 1);
       this.targetBpm = lerp(68, 122, this.intensity);
-      if (this.playing && this.out) this.out.gain.setTargetAtTime(this.volume(), Sound.ctx.currentTime, 1.5);
+      if (this.level) this.rampTo(this.level.gain, this.volume(), 1.5);
     },
     tick() {
       const ctx = Sound.ctx;
+      if (ctx.state !== 'running') { Sound.wake(); return; }
+      // nach einer Unterbrechung nicht alle verpassten Schritte auf einmal nachholen
+      if (this.nextTime < ctx.currentTime - 0.3) this.nextTime = ctx.currentTime + 0.05;
       while (this.nextTime < ctx.currentTime + 0.15) {
         this.playStep(this.step, this.nextTime);
         this.bpm += (this.targetBpm - this.bpm) * 0.03;
@@ -692,6 +716,7 @@
   }
 
   function onTouch(e) {
+    if (e.type === 'touchend' && Sound.ctx && Sound.ctx.state !== 'running') Sound.wake();
     const t = e.target;
     const inUi = t && t.closest && (t.closest('button') || t.closest('.screen'));
     if (!inUi) e.preventDefault();
