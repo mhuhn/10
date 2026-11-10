@@ -682,7 +682,7 @@
   // ---------- Effekte ----------
   function flashLevel(n) {
     const el = document.getElementById('levelFlash');
-    el.innerHTML = '<span class="lf-num">' + n + '</span><span class="lf-label">Kreise</span>';
+    el.innerHTML = '<span class="lf-num">' + n + '</span>';
     el.classList.remove('show');
     void el.offsetWidth; // Animation neu starten
     el.classList.add('show');

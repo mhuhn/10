@@ -160,7 +160,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 }
 #levelFlash.show { animation: level-flash 2.2s ease-out forwards; }
 .lf-num {
-  font-size: min(60vh, 46vw);
+  font-size: min(88vh, 64vw);
   font-weight: 800;
   line-height: .85;
   font-variant-numeric: tabular-nums;
