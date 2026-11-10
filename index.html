@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="10">
+<meta name="theme-color" content="#0B1026">
+<meta name="format-detection" content="telephone=no">
+<title>10</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="bar">
+  <div class="bar-left">
+    <button id="btnPause" class="icon-btn" aria-label="Pause" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
+    </button>
+    <div class="stat">
+      <span class="stat-label">Aufgabe</span>
+      <span class="stat-value" id="taskNo">–</span>
+    </div>
+  </div>
+  <div class="bar-center">
+    <span id="countdown" class="countdown idle">10</span>
+  </div>
+  <div class="bar-right">
+    <div class="stat right">
+      <span class="stat-label">Punkte</span>
+      <span class="stat-value" id="score">0</span>
+    </div>
+    <button id="btnSound" class="icon-btn" aria-label="Ton aus">
+      <svg class="snd-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>
+      <svg class="snd-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></svg>
+    </button>
+  </div>
+  <div class="timebar"><div id="timefill"></div></div>
+</header>
+
+<main id="field" aria-label="Spielfläche">
+  <div id="circles"></div>
+  <div id="fx"></div>
+</main>
+
+<!-- Startbildschirm -->
+<section id="scrStart" class="screen">
+  <div class="card">
+    <div class="logo" id="logo" aria-hidden="true"></div>
+    <h1 class="title">10</h1>
+    <p class="lead">Berühre die Kreise – so schnell und so gleichzeitig wie möglich. Erst einer, am Ende zehn.</p>
+    <button id="btnStart" class="btn primary">Spiel starten</button>
+    <p class="best" id="bestStart"></p>
+    <details class="hint">
+      <summary>Tipp fürs iPad</summary>
+      <p>Ab vier Kreisen können die Wisch- und Zusammenzieh-Gesten von iPadOS dazwischenfunken. Schalte sie unter <b>Einstellungen › Multitasking &amp; Gesten</b> aus, oder nutze den <b>Geführten Zugriff</b> (Bedienungshilfen).</p>
+    </details>
+  </div>
+</section>
+
+<!-- Neue Stufe -->
+<section id="scrLevel" class="screen" hidden>
+  <div class="card">
+    <div class="level-dots" id="levelDots" aria-hidden="true"></div>
+    <h2 class="level-title" id="levelTitle">2 Kreise</h2>
+    <p class="lead" id="levelText">Berühre beide Kreise gleichzeitig – und sonst nichts.</p>
+    <button id="btnLevelGo" class="btn primary">Los</button>
+  </div>
+</section>
+
+<!-- Pause -->
+<section id="scrPause" class="screen" hidden>
+  <div class="card">
+    <h2 class="level-title">Pause</h2>
+    <p class="lead">Die aktuelle Aufgabe startet beim Weiterspielen neu.</p>
+    <button id="btnResume" class="btn primary">Weiter</button>
+    <button id="btnQuit" class="btn ghost">Spiel beenden</button>
+  </div>
+</section>
+
+<!-- Ende -->
+<section id="scrEnd" class="screen" hidden>
+  <div class="card wide">
+    <p class="kicker" id="endKicker">Geschafft!</p>
+    <div class="final" id="finalScore">0</div>
+    <p class="lead" id="endSub">von 2740 möglichen Punkten</p>
+    <p class="best" id="endBest"></p>
+    <div class="levels" id="levelStats"></div>
+    <button id="btnAgain" class="btn primary">Nochmal</button>
+    <button id="btnHome" class="btn ghost">Zum Start</button>
+  </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
