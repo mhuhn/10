@@ -147,6 +147,42 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 @keyframes pop-out { to { transform: scale(1.5); opacity: 0; } }
 @keyframes fade-out { to { transform: scale(.6); opacity: 0; } }
 
+/* Neue Stufe: Kreisanzahl groß im Hintergrund */
+#levelFlash {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+}
+#levelFlash.show { animation: level-flash 2.2s ease-out forwards; }
+.lf-num {
+  font-size: min(60vh, 46vw);
+  font-weight: 800;
+  line-height: .85;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(90deg, var(--cyan), #8B5CFF, var(--pink));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 40px rgba(139, 92, 255, .55));
+}
+.lf-label {
+  font-size: min(6vh, 5vw);
+  font-weight: 700;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-top: 2vh;
+}
+@keyframes level-flash {
+  0%   { opacity: 0; transform: scale(.7); }
+  15%  { opacity: .55; transform: scale(1.04); }
+  45%  { opacity: .35; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.12); }
+}
+
 /* Effekte */
 .ring {
   position: absolute;

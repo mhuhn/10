@@ -233,10 +233,10 @@
       this.tone(170, 0, 0.13, { type: 'square', gain: 0.045, glide: 95 });
     },
     success(q) {
-      const notes = [523.25, 659.25, 783.99, 1046.5];
-      notes.forEach((f, i) => this.tone(f, i * 0.045, 0.32, { type: 'triangle', gain: 0.12 }));
-      if (q > 0.6) this.tone(2093, 0.18, 0.25, { gain: 0.05 });
-      if (q > 0.85) this.tone(2637, 0.24, 0.3, { gain: 0.04 });
+      // bewusst leise und kurz, damit es auf Dauer nicht nervt
+      const notes = [659.25, 783.99, 1046.5];
+      notes.forEach((f, i) => this.tone(f, i * 0.04, 0.2, { type: 'sine', gain: 0.045 }));
+      if (q > 0.85) this.tone(2093, 0.12, 0.18, { gain: 0.012 });
     },
     miss() {
       this.tone(330, 0, 0.2, { type: 'triangle', gain: 0.12, glide: 220 });
@@ -535,8 +535,9 @@
   function nextTask() {
     idx++;
     if (taskAt(idx).n !== taskAt(idx - 1).n) {
-      // neue Stufe: kurzer Klang, etwas längere Pause, kein Zwischenbildschirm
+      // neue Stufe: kurzer Klang, neue Kreisanzahl groß im Hintergrund, kein Zwischenbildschirm
       Sound.levelUp();
+      flashLevel(taskAt(idx).n);
       later(startTask, 350);
     } else startTask();
   }
@@ -617,6 +618,14 @@
   }
 
   // ---------- Effekte ----------
+  function flashLevel(n) {
+    const el = document.getElementById('levelFlash');
+    el.innerHTML = '<span class="lf-num">' + n + '</span><span class="lf-label">Kreise</span>';
+    el.classList.remove('show');
+    void el.offsetWidth; // Animation neu starten
+    el.classList.add('show');
+  }
+
   function spawnRing(x, y, d, color) {
     const el = document.createElement('div');
     el.className = 'ring';
