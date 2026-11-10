@@ -10,7 +10,8 @@ Multitouch-Reaktionsspiel als PWA fürs iPad: Kreise so schnell und so gleichzei
 - Jedes Tippen neben einen Kreis kostet 500 ms.
 - Stufe 1: ein Kreis, 4 Aufgaben, die Kreise werden kleiner. Bei 1 und 2 Kreisen starten sie schon mittelgroß.
 - Danach je 5 Aufgaben mit 2, 3 … 10 Kreisen. Die Stufen gehen ohne Zwischenbildschirm ineinander über. In jeder Stufe starten die Kreise groß und dicht beieinander und werden dann kleiner und rücken auseinander. Ab 6 Kreisen gibt es eine Gruppe pro Hand.
-- Höchstpunktzahl: 2740.
+- Nach den 5 Aufgaben mit 10 Kreisen geht es endlos weiter: In jeder Zusatzrunde rücken die Punkte jeder Hand weiter auseinander, bis die Zeit einmal abläuft.
+- Hintergrundmusik (generativ, Web Audio): beginnt ruhig und leise und wird mit jeder Aufgabe schneller und vielschichtiger.
 
 ## iPad-Tipp
 

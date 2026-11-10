@@ -45,6 +45,12 @@
     return plan;
   }
   const PLAN = buildPlan();
+
+  // Nach dem Plan geht es endlos mit 10 Kreisen weiter; extra = Nummer der Zusatzrunde (1, 2, …)
+  function taskAt(i) {
+    if (i < PLAN.length) return PLAN[i];
+    return { n: MAX_CIRCLES, k: 4, T: 5, t: 1, extra: i - PLAN.length + 1 };
+  }
   const MAX_SCORE = PLAN.reduce((s, p) => s + p.n * 10, 0);
   const LEVEL_MAX = Array.from({ length: MAX_CIRCLES }, (_, i) => PLAN.filter((p) => p.n === i + 1).length * (i + 1) * 10);
 
@@ -69,7 +75,15 @@
     else if (groupSize <= 3) max = 260;
     else max = 200;
     max = Math.max(max * s, d + 30 * s);
+    // Zusatzrunden mit 10 Fingern: die Punkte jeder Hand rücken Runde für Runde weiter auseinander
+    if (task.extra) return Math.min(max + task.extra * 18 * s, 420 * s);
     return lerp(d + 14 * s, max, task.t);
+  }
+
+  // Größte erlaubte Spannweite einer Hand
+  function handSpan(task, s) {
+    if (task.extra) return Math.min(440 + task.extra * 40, 950) * s;
+    return 440 * s;
   }
 
   function placeGroup(m, b, D, minSep, span) {
@@ -146,7 +160,7 @@
       ];
       groups.forEach((m, gi) => {
         const D = neighborDist(task, d, s, m);
-        const g = placeGroup(m, bounds[gi], D, minSep, 440 * s) || gridFallback(m, bounds[gi], d);
+        const g = placeGroup(m, bounds[gi], D, minSep, handSpan(task, s)) || gridFallback(m, bounds[gi], d);
         pts = pts.concat(g);
       });
     }
@@ -164,8 +178,10 @@
         if (!AC) return;
         const ctx = new AC();
         const master = ctx.createGain();
-        master.gain.value = this.muted ? 0 : 0.7;
+        master.gain.value = 0.7;
         const comp = ctx.createDynamicsCompressor();
+        const bus = ctx.createGain();
+        bus.gain.value = this.muted ? 0 : 1;
         // leichtes Echo für einen weicheren Klang
         const delay = ctx.createDelay(1);
         delay.delayTime.value = 0.13;
@@ -173,15 +189,15 @@
         const wet = ctx.createGain(); wet.gain.value = 0.3;
         master.connect(comp);
         master.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(comp);
-        comp.connect(ctx.destination);
-        this.ctx = ctx; this.out = master;
+        comp.connect(bus); bus.connect(ctx.destination);
+        this.ctx = ctx; this.out = master; this.comp = comp; this.bus = bus;
       }
       if (this.ctx.state === 'suspended') this.ctx.resume();
     },
     setMuted(m) {
       this.muted = m;
       store.set(STORE_MUTED, m ? '1' : '0');
-      if (this.out) this.out.gain.setTargetAtTime(m ? 0 : 0.7, this.ctx.currentTime, 0.02);
+      if (this.bus) this.bus.gain.setTargetAtTime(m ? 0 : 1, this.ctx.currentTime, 0.02);
     },
     tone(freq, at, dur, opt = {}) {
       if (!this.ctx || this.muted) return;
@@ -222,6 +238,158 @@
     fanfare() {
       const seq = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.51, 1567.98];
       seq.forEach((f, i) => this.tone(f, i * 0.09, i === seq.length - 1 ? 0.8 : 0.22, { type: 'triangle', gain: 0.12 }));
+    }
+  };
+
+
+  // ---------- Hintergrundmusik ----------
+  // Generativ: Am – F – C – G, ein Akkord pro Takt. Mit der Intensität (0 … 1) kommen
+  // nach und nach Bass, Arpeggio, Kick, Hi-Hat, Clap und Melodie dazu, das Tempo steigt.
+  const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  const CHORDS = [
+    { root: 45, tones: [57, 60, 64] },  // Am
+    { root: 41, tones: [57, 60, 65] },  // F
+    { root: 48, tones: [55, 60, 64] },  // C
+    { root: 43, tones: [55, 59, 62] }   // G
+  ];
+  const MELODY = [69, 72, 74, 76, 79, 81, 84]; // A-Moll-Pentatonik
+
+  const Music = {
+    out: null, noise: null, timer: 0, playing: false,
+    step: 0, nextTime: 0, bpm: 68, targetBpm: 68, intensity: 0, melIdx: 3,
+    ensure() {
+      const ctx = Sound.ctx;
+      if (!ctx) return false;
+      if (!this.out) {
+        this.out = ctx.createGain();
+        this.out.gain.value = 0.0001;
+        this.out.connect(Sound.comp);
+        const len = ctx.sampleRate;
+        this.noise = ctx.createBuffer(1, len, ctx.sampleRate);
+        const data = this.noise.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      }
+      return true;
+    },
+    volume() { return lerp(0.35, 0.9, this.intensity); },
+    start() {
+      if (!this.ensure() || this.playing) return;
+      const ctx = Sound.ctx, now = ctx.currentTime;
+      this.out.gain.cancelScheduledValues(now);
+      this.out.gain.setValueAtTime(0.0001, now);
+      this.out.gain.linearRampToValueAtTime(this.volume(), now + 3);
+      this.bpm = this.targetBpm;
+      this.step = 0;
+      this.nextTime = now + 0.15;
+      this.playing = true;
+      clearInterval(this.timer);
+      this.timer = setInterval(() => this.tick(), 25);
+    },
+    stop(fade = 1.5) {
+      if (!this.playing || !this.out) return;
+      const ctx = Sound.ctx, now = ctx.currentTime;
+      this.playing = false;
+      this.out.gain.cancelScheduledValues(now);
+      this.out.gain.setValueAtTime(this.out.gain.value, now);
+      this.out.gain.linearRampToValueAtTime(0.0001, now + fade);
+      setTimeout(() => { if (!this.playing) clearInterval(this.timer); }, fade * 1000 + 100);
+    },
+    setIntensity(x) {
+      this.intensity = clamp(x, 0, 1);
+      this.targetBpm = lerp(68, 122, this.intensity);
+      if (this.playing && this.out) this.out.gain.setTargetAtTime(this.volume(), Sound.ctx.currentTime, 1.5);
+    },
+    tick() {
+      const ctx = Sound.ctx;
+      while (this.nextTime < ctx.currentTime + 0.15) {
+        this.playStep(this.step, this.nextTime);
+        this.bpm += (this.targetBpm - this.bpm) * 0.03;
+        this.nextTime += 60 / this.bpm / 4;
+        this.step++;
+      }
+    },
+    voice(freq, t, dur, { type = 'sine', gain = 0.05, attack = 0.005, cutoff = 0 } = {}) {
+      const ctx = Sound.ctx;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(gain, t + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      let node = o;
+      if (cutoff) {
+        const f = ctx.createBiquadFilter();
+        f.type = 'lowpass'; f.frequency.value = cutoff;
+        o.connect(f); node = f;
+      }
+      node.connect(g); g.connect(this.out);
+      o.start(t); o.stop(t + dur + 0.05);
+    },
+    noiseHit(t, dur, { type = 'highpass', freq = 7000, gain = 0.03, q = 0.7 } = {}) {
+      const ctx = Sound.ctx;
+      const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = this.noise;
+      f.type = type; f.frequency.value = freq; f.Q.value = q;
+      g.gain.setValueAtTime(gain, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(f); f.connect(g); g.connect(this.out);
+      src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+    },
+    kick(t, gain) {
+      const ctx = Sound.ctx;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(110, t);
+      o.frequency.exponentialRampToValueAtTime(42, t + 0.14);
+      g.gain.setValueAtTime(gain, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      o.connect(g); g.connect(this.out);
+      o.start(t); o.stop(t + 0.25);
+    },
+    playStep(s, t) {
+      const I = this.intensity;
+      const pos = s % 16;
+      const chord = CHORDS[Math.floor(s / 16) % CHORDS.length];
+      const sixteenth = 60 / this.bpm / 4;
+      const bar = sixteenth * 16;
+
+      // Fläche: immer, wird mit der Intensität heller
+      if (pos === 0) {
+        const cutoff = lerp(500, 2600, I);
+        chord.tones.forEach((m) => this.voice(midi(m), t, bar * 1.05, { type: 'triangle', gain: 0.035, attack: bar * 0.35, cutoff }));
+      }
+      // Bass
+      if (I > 0.1) {
+        if (pos === 0 || (I > 0.45 && pos === 8) || (I > 0.75 && (pos === 6 || pos === 14))) {
+          this.voice(midi(chord.root), t, sixteenth * 3.5, { type: 'triangle', gain: lerp(0.06, 0.1, I), cutoff: 900 });
+        }
+      }
+      // Arpeggio: erst Achtel, später Sechzehntel
+      if (I > 0.22) {
+        const every = I > 0.7 ? 1 : 2;
+        if (pos % every === 0) {
+          const seq = [0, 1, 2, 1];
+          const k = (pos / every) % seq.length;
+          const octave = (I > 0.55 && Math.floor(pos / 8) === 1) ? 12 : 0;
+          this.voice(midi(chord.tones[seq[k]] + 12 + octave), t, sixteenth * 2.2, { gain: lerp(0.025, 0.045, I) });
+        }
+      }
+      // Kick: erst auf 1 und 3, später jede Viertel
+      if (I > 0.35) {
+        if (pos === 0 || pos === 8 || (I > 0.6 && (pos === 4 || pos === 12))) this.kick(t, lerp(0.12, 0.2, I));
+      }
+      // Hi-Hat auf den Offbeats, später dichter
+      if (I > 0.48) {
+        if (pos % 4 === 2 || (I > 0.8 && pos % 2 === 1 && Math.random() < 0.5)) this.noiseHit(t, 0.04, { gain: lerp(0.015, 0.03, I) });
+      }
+      // Clap auf 2 und 4
+      if (I > 0.62 && (pos === 4 || pos === 12)) {
+        this.noiseHit(t, 0.12, { type: 'bandpass', freq: 1500, gain: 0.05, q: 1.2 });
+      }
+      // Melodie: Zufallsweg durch die Pentatonik
+      if (I > 0.72 && pos % 2 === 0 && Math.random() < lerp(0.3, 0.55, I)) {
+        this.melIdx = clamp(this.melIdx + Math.floor(Math.random() * 5) - 2, 0, MELODY.length - 1);
+        this.voice(midi(MELODY[this.melIdx]), t, sixteenth * (Math.random() < 0.3 ? 4 : 2), { type: 'triangle', gain: 0.04, cutoff: 3000 });
+      }
     }
   };
 
@@ -272,14 +440,17 @@
     show(null);
     phase = 'between';
     Sound.levelUp();
+    Music.setIntensity(0);
+    Music.start();
     setCountdownIdle('10');
     later(startTask, 650);
   }
 
   function startTask() {
     clearTimers();
-    task = PLAN[idx];
+    task = taskAt(idx);
     geo = layoutTask(task);
+    Music.setIntensity(idx / (PLAN.length - 4));
     circlesEl.innerHTML = '';
     circles = geo.pts.map((p, i) => {
       const el = document.createElement('div');
@@ -293,7 +464,7 @@
       return { x: p.x, y: p.y, el };
     });
     stale = new Set(currentIds);
-    ui.taskNo.textContent = (idx + 1) + ' / ' + PLAN.length;
+    ui.taskNo.textContent = idx < PLAN.length ? (idx + 1) + ' / ' + PLAN.length : String(idx + 1);
     ui.countdown.classList.remove('idle');
     shownPts = -1;
     taskStart = performance.now();
@@ -339,8 +510,7 @@
 
   function nextTask() {
     idx++;
-    if (idx >= PLAN.length) { endGame(false); return; }
-    if (PLAN[idx].n !== PLAN[idx - 1].n) {
+    if (taskAt(idx).n !== taskAt(idx - 1).n) {
       // neue Stufe: kurzer Klang, etwas längere Pause, kein Zwischenbildschirm
       Sound.levelUp();
       later(startTask, 350);
@@ -348,6 +518,7 @@
   }
 
   function endGame(timedOut) {
+    Music.stop(2);
     state = 'ended';
     phase = 'idle';
     clearTimers();
@@ -358,10 +529,11 @@
     ui.timefill.style.transform = 'scaleX(0)';
     const best = parseInt(store.get(STORE_BEST, '0'), 10) || 0;
     ui.finalScore.textContent = String(score);
-    const reachedLevel = PLAN[Math.min(idx, PLAN.length - 1)].n;
-    ui.endSub.textContent = timedOut
-      ? 'Zeit abgelaufen bei Aufgabe ' + (idx + 1) + ' von ' + PLAN.length + ' (' + reachedLevel + (reachedLevel === 1 ? ' Kreis' : ' Kreise') + ')'
-      : 'Alle ' + PLAN.length + ' Aufgaben geschafft – von ' + MAX_SCORE + ' möglichen Punkten';
+    const reachedLevel = taskAt(idx).n;
+    const extra = taskAt(idx).extra || 0;
+    ui.endSub.textContent = extra
+      ? 'Zeit abgelaufen in der ' + extra + '. Zusatzrunde mit 10 Fingern (Aufgabe ' + (idx + 1) + ')'
+      : 'Zeit abgelaufen bei Aufgabe ' + (idx + 1) + ' (' + reachedLevel + (reachedLevel === 1 ? ' Kreis' : ' Kreise') + ')';
     const record = score > best;
     if (record) {
       store.set(STORE_BEST, score);
@@ -373,7 +545,7 @@
     }
     ui.levelStats.innerHTML = '';
     levelScore.forEach((v, i) => {
-      const pct = Math.round((v / LEVEL_MAX[i]) * 100);
+      const pct = Math.min(100, Math.round((v / LEVEL_MAX[i]) * 100));
       const cell = document.createElement('div');
       cell.className = 'lv';
       cell.innerHTML = '<span class="lv-n">' + (i + 1) + (i === 0 ? ' Kreis' : ' Kreise') + '</span>' +
@@ -389,6 +561,7 @@
     if (state !== 'playing' || phase === 'paused' || phase === 'intro') return;
     clearTimers();
     phase = 'paused';
+    Music.stop(0.6);
     circlesEl.innerHTML = '';
     circles = [];
     setCountdownIdle('II');
@@ -398,6 +571,7 @@
 
   function resumeGame() {
     Sound.init();
+    Music.start();
     show(null);
     phase = 'between';
     later(startTask, 400);
@@ -405,6 +579,7 @@
 
   function quitGame() {
     clearTimers();
+    Music.stop(0.6);
     state = 'menu';
     phase = 'idle';
     circlesEl.innerHTML = '';
@@ -597,5 +772,5 @@
   }
 
   // Für Tests
-  window.__ten = { PLAN, MAX_SCORE, layoutTask, placeGroup, jump(i) { Sound.init(); state = 'playing'; idx = i; show(null); ui.btnPause.hidden = false; startTask(); } };
+  window.__ten = { taskAt, Music, PLAN, MAX_SCORE, layoutTask, placeGroup, jump(i) { Sound.init(); Music.start(); state = 'playing'; idx = i; show(null); ui.btnPause.hidden = false; startTask(); } };
 })();
