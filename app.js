@@ -246,7 +246,8 @@
       this.tone(220, 0.13, 0.32, { type: 'triangle', gain: 0.1, glide: 147 });
     },
     levelUp() {
-      [523.25, 659.25, 783.99, 1046.5, 1318.51].forEach((f, i) => this.tone(f, i * 0.07, 0.3, { type: 'triangle', gain: 0.11 }));
+      // tief und leise: weicher Dreiklang eine Oktave unter den Effekten
+      [196.0, 261.63, 329.63].forEach((f, i) => this.tone(f, i * 0.06, 0.45, { type: 'sine', gain: 0.05, attack: 0.03 }));
     },
     fanfare() {
       const seq = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.51, 1567.98];
