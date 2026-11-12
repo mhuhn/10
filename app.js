@@ -1,12 +1,14 @@
 /* 10 – Multitouch-Reaktionsspiel
    Stufe 1: ein Kreis (4 Aufgaben), danach je 5 Aufgaben mit 2 … 10 Kreisen.
-   Pro Aufgabe 5 Sekunden, Startpunkte = 10 × Kreisanzahl, gleichmäßig herunterzählend. */
+   Zeit: 3 s bei einem Kreis, je Kreis 400 ms mehr (10 Kreise: 6,6 s). Startpunkte = 10 × Kreisanzahl, gleichmäßig herunterzählend. */
 (() => {
   'use strict';
 
   // ---------- Konstanten ----------
-  const TOTAL_MS = 5000;
-  const PENALTY_MS = 500;   // Abzug fürs Tippen neben einen Kreis
+  const BASE_MS = 3000;     // Zeit bei 1 Kreis
+  const STEP_MS = 400;      // pro zusätzlichem Kreis
+  const PENALTY_MS = 300;   // Abzug fürs Tippen neben einen Kreis
+  const timeFor = (n) => BASE_MS + (n - 1) * STEP_MS;
   const MAX_CIRCLES = 10;
   const STORE_SCORES = 'ten.highscores';
   const STORE_NAME = 'ten.lastName';
@@ -501,7 +503,7 @@
 
   function pointsAt(now) {
     const maxP = task.n * 10;
-    const interval = TOTAL_MS / maxP;
+    const interval = timeFor(task.n) / maxP;
     return Math.max(0, maxP - Math.floor((now - taskStart) / interval));
   }
 
@@ -708,7 +710,7 @@
     fxEl.appendChild(el);
     const txt = document.createElement('div');
     txt.className = 'penalty';
-    txt.textContent = '−0,5 s';
+    txt.textContent = '−0,3 s';
     txt.style.left = clamp(x, 50, field.clientWidth - 50) + 'px';
     txt.style.top = Math.max(30, y - 50) + 'px';
     fxEl.appendChild(txt);
@@ -818,15 +820,16 @@
   function frame(now) {
     if (phase === 'live') {
       const el = now - taskStart;
+      const total = timeFor(task.n);
       const pts = pointsAt(now);
       if (pts !== shownPts) {
         shownPts = pts;
         ui.countdown.textContent = String(pts);
-        const k = clamp(el / TOTAL_MS, 0, 1);
+        const k = clamp(el / total, 0, 1);
         ui.countdown.style.color = 'hsl(' + Math.round(lerp(175, 330, k)) + ' 90% 62%)';
       }
-      ui.timefill.style.transform = 'scaleX(' + clamp(1 - el / TOTAL_MS, 0, 1) + ')';
-      if (el >= TOTAL_MS) timeout();
+      ui.timefill.style.transform = 'scaleX(' + clamp(1 - el / total, 0, 1) + ')';
+      if (el >= total) timeout();
     }
     requestAnimationFrame(frame);
   }
