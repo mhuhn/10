@@ -136,6 +136,23 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   background: radial-gradient(circle, hsl(var(--h) 95% 72%) 0%, hsl(var(--h) 90% 58%) 75%);
   box-shadow: 0 0 40px hsla(var(--h), 95%, 65%, 0.9), inset 0 0 12px rgba(255,255,255,0.5);
 }
+/* Impulsring für Kreise, die nach der halben Zeit noch frei sind –
+   wird größer als die Hand, damit man sieht, wo ein Finger fehlt */
+.circle.pulse::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 4px solid hsl(var(--h) 90% 65%);
+  box-shadow: 0 0 18px hsla(var(--h), 90%, 65%, 0.7);
+  pointer-events: none;
+  animation: pulse-ring .75s ease-out infinite;
+}
+.circle.done::before, .circle.gone::before { display: none; }
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: .95; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
 .circle.done {
   animation: pop-out .28s ease-in forwards;
 }

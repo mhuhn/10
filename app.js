@@ -829,6 +829,9 @@
         ui.countdown.style.color = 'hsl(' + Math.round(lerp(175, 330, k)) + ' 90% 62%)';
       }
       ui.timefill.style.transform = 'scaleX(' + clamp(1 - el / total, 0, 1) + ')';
+      // Ab der Hälfte der Zeit: Impulsringe um alle noch nicht berührten Kreise
+      const late = el >= total / 2;
+      for (const c of circles) c.el.classList.toggle('pulse', late && !c.el.classList.contains('on'));
       if (el >= total) timeout();
     }
     requestAnimationFrame(frame);

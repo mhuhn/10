@@ -8,6 +8,7 @@ Multitouch-Reaktionsspiel als PWA fürs iPad: Kreise so schnell und so gleichzei
 - Läuft die Zeit einmal ab, ist das Spiel vorbei.
 - Weiter geht es erst, wenn jeder Kreis von genau einem Finger berührt wird und kein Finger daneben liegt. Finger, die schon vor dem Erscheinen lagen, zählen als „daneben“.
 - Jedes Tippen neben einen Kreis kostet 300 ms.
+- Ab der Hälfte der Zeit senden Kreise, die noch nicht berührt sind, wachsende Impulsringe aus – so sieht man auch unter der Hand, wo ein Finger fehlt.
 - Stufe 1: ein Kreis, 4 Aufgaben, die Kreise werden kleiner. Bei 1 und 2 Kreisen starten sie schon mittelgroß.
 - Danach je 5 Aufgaben mit 2, 3 … 10 Kreisen. Die Stufen gehen ohne Zwischenbildschirm ineinander über. In jeder Stufe starten die Kreise groß und dicht beieinander und werden dann kleiner und rücken auseinander. Ab 6 Kreisen gibt es eine Gruppe pro Hand.
 - Nach den 5 Aufgaben mit 10 Kreisen geht es endlos weiter: In jeder Zusatzrunde rücken die Punkte jeder Hand weiter auseinander, bis die Zeit einmal abläuft.
