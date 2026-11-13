@@ -572,9 +572,10 @@
     crosses.forEach((p) => drawCross(p.x, p.y));
     setCountdownIdle('0');
     ui.timefill.style.transform = 'scaleX(0)';
+    Music.stop(0.04); // Musik sofort aus
     Sound.fail();
     if (navigator.vibrate) navigator.vibrate(200);
-    later(() => endGame(true), 3000);
+    later(() => endGame(true), 5400);
   }
 
   function nextTask() {
