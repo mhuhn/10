@@ -153,6 +153,59 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   0%   { transform: scale(1);   opacity: .95; }
   100% { transform: scale(3.2); opacity: 0; }
 }
+/* Spielende: verfehlte Kreise blinken, getroffene treten zurück */
+.circle.missed {
+  animation: miss-blink .5s steps(1, end) infinite;
+  border-color: #fff;
+  box-shadow: 0 0 36px hsla(var(--h), 95%, 65%, 1), inset 0 0 22px hsla(var(--h), 95%, 65%, .7);
+}
+.circle.hit-end { animation: dim-out .3s ease-out forwards; }
+@keyframes dim-out { to { opacity: .28; transform: scale(1); } }
+@keyframes miss-blink { 0% { opacity: 1; } 50% { opacity: .12; } }
+
+.miss-cross {
+  position: absolute;
+  width: 44px; height: 44px;
+  margin: -22px 0 0 -22px;
+  pointer-events: none;
+  animation: cross-in .25s cubic-bezier(.3, 1.6, .5, 1) both;
+}
+.miss-cross::before, .miss-cross::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 46px; height: 6px;
+  margin: -3px 0 0 -23px;
+  border-radius: 3px;
+  background: var(--bad);
+  box-shadow: 0 0 12px rgba(255, 90, 95, .8);
+  transform: rotate(45deg);
+}
+.miss-cross::after { transform: rotate(-45deg); }
+@keyframes cross-in { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.miss-line {
+  position: absolute;
+  height: 0;
+  border-top: 3px dashed hsl(var(--h) 90% 70%);
+  transform-origin: 0 50%;
+  margin-top: -1.5px;
+  pointer-events: none;
+  opacity: .9;
+}
+.miss-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: rgba(11, 16, 38, .85);
+  color: hsl(var(--h) 90% 75%);
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .circle.done {
   animation: pop-out .28s ease-in forwards;
 }

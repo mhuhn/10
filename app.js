@@ -243,9 +243,12 @@
       notes.forEach((f, i) => this.tone(f, i * 0.04, 0.2, { type: 'sine', gain: 0.045 }));
       if (q > 0.85) this.tone(2093, 0.12, 0.18, { gain: 0.012 });
     },
-    miss() {
-      this.tone(330, 0, 0.2, { type: 'triangle', gain: 0.12, glide: 220 });
-      this.tone(220, 0.13, 0.32, { type: 'triangle', gain: 0.1, glide: 147 });
+    // Fehlergeräusch bei Spielende: zwei tiefe, absteigende Brummtöne
+    fail() {
+      this.tone(185, 0, 0.28, { type: 'square', gain: 0.05, glide: 150 });
+      this.tone(92, 0, 0.3, { type: 'sine', gain: 0.16, glide: 75 });
+      this.tone(156, 0.3, 0.5, { type: 'square', gain: 0.05, glide: 110 });
+      this.tone(78, 0.3, 0.55, { type: 'sine', gain: 0.16, glide: 55 });
     },
     levelUp() {
       // tief und leise: weicher Dreiklang eine Oktave unter den Effekten
@@ -434,6 +437,7 @@
   let circles = [];        // { x, y, el } in Feld-Koordinaten
   let taskStart = 0;
   let stale = new Set();   // Finger, die schon vor dem Erscheinen lagen
+  let touchLog = new Map(); // letzte Position jedes Fingers im laufenden Level (für die Auswertung)
   let currentIds = new Set();
   let shownPts = -1;
   let timers = [];
@@ -494,6 +498,8 @@
       return { x: p.x, y: p.y, el };
     });
     stale = new Set(currentIds);
+    touchLog = new Map();
+    fxEl.innerHTML = '';
     ui.taskNo.textContent = String(idx + 1);
     ui.countdown.classList.remove('idle');
     shownPts = -1;
@@ -529,13 +535,46 @@
 
   function timeout() {
     phase = 'between';
-    let cx = 0, cy = 0;
-    circles.forEach((c) => { c.el.classList.remove('on'); c.el.classList.add('gone'); cx += c.x; cy += c.y; });
-    floatText(cx / circles.length, cy / circles.length, '0', true);
+    // Auswertung: welche Kreise fehlten, wo lagen Finger daneben?
+    const missed = [];
+    circles.forEach((c, i) => {
+      if (c.el.classList.contains('on')) {
+        c.el.classList.remove('on');
+        c.el.classList.add('hit-end');
+      } else {
+        c.el.classList.remove('pulse');
+        c.el.classList.add('missed');
+        missed.push(i);
+      }
+    });
+    // Kreuz für jeden Finger daneben – und für zweite Finger auf einem schon belegten Kreis
+    const crosses = [];
+    const nearest = new Map(); // Kreis → nächster Finger
+    touchLog.forEach((p, id) => {
+      const i = stale.has(id) ? -1 : circleAt(p.x, p.y);
+      if (i < 0) { crosses.push(p); return; }
+      const d = Math.hypot(p.x - circles[i].x, p.y - circles[i].y);
+      const prev = nearest.get(i);
+      if (!prev) nearest.set(i, { p, d });
+      else if (d < prev.d) { crosses.push(prev.p); nearest.set(i, { p, d }); }
+      else crosses.push(p);
+    });
+    // jeden verfehlten Kreis mit dem nächstgelegenen Fehl-Finger verbinden
+    const free = crosses.slice();
+    missed.forEach((i) => {
+      if (!free.length) return;
+      const c = circles[i];
+      let bi = 0;
+      free.forEach((p, k) => { if (Math.hypot(p.x - c.x, p.y - c.y) < Math.hypot(free[bi].x - c.x, free[bi].y - c.y)) bi = k; });
+      const p = free.splice(bi, 1)[0];
+      missLine(c, p, hueFor(i, circles.length));
+    });
+    crosses.forEach((p) => drawCross(p.x, p.y));
     setCountdownIdle('0');
     ui.timefill.style.transform = 'scaleX(0)';
-    Sound.miss();
-    later(() => endGame(true), 1100);
+    Sound.fail();
+    if (navigator.vibrate) navigator.vibrate(200);
+    later(() => endGame(true), 3000);
   }
 
   function nextTask() {
@@ -550,6 +589,7 @@
 
   function endGame(timedOut) {
     Music.stop(2);
+    fxEl.innerHTML = '';
     state = 'ended';
     phase = 'idle';
     clearTimers();
@@ -683,6 +723,41 @@
   }
 
   // ---------- Effekte ----------
+  function drawCross(x, y) {
+    const el = document.createElement('div');
+    el.className = 'miss-cross';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    fxEl.appendChild(el);
+  }
+
+  // gestrichelte Linie vom Kreisrand zum Fehl-Finger mit Abstand in mm
+  function missLine(c, p, hue) {
+    const dx = p.x - c.x, dy = p.y - c.y;
+    const dist = Math.hypot(dx, dy);
+    const gap = Math.max(0, dist - geo.r);
+    if (gap < 4) return;
+    const ang = Math.atan2(dy, dx);
+    const sx = c.x + Math.cos(ang) * geo.r, sy = c.y + Math.sin(ang) * geo.r;
+    const line = document.createElement('div');
+    line.className = 'miss-line';
+    line.style.left = sx + 'px';
+    line.style.top = sy + 'px';
+    line.style.width = gap + 'px';
+    line.style.transform = 'rotate(' + ang + 'rad)';
+    line.style.setProperty('--h', hue);
+    fxEl.appendChild(line);
+    const lbl = document.createElement('div');
+    lbl.className = 'miss-label';
+    // iPad: rund 132 CSS-Pixel pro Zoll → 1 px ≈ 0,19 mm
+    lbl.textContent = Math.round(gap * 25.4 / 132) + ' mm';
+    // Beschriftung auf der vom Kreis abgewandten Seite des Kreuzes
+    lbl.style.left = clamp(p.x + Math.cos(ang) * 52, 40, field.clientWidth - 40) + 'px';
+    lbl.style.top = clamp(p.y + Math.sin(ang) * 40, 14, field.clientHeight - 14) + 'px';
+    lbl.style.setProperty('--h', hue);
+    fxEl.appendChild(lbl);
+  }
+
   function flashLevel(n) {
     const el = document.getElementById('levelFlash');
     el.innerHTML = '<span class="lf-num">' + n + '</span>';
@@ -775,6 +850,8 @@
   function handleInput(kind, changed, current) {
     currentIds = new Set(current.map((p) => p.id));
     if (state !== 'playing' || phase !== 'live') return;
+    for (const p of changed) touchLog.set(p.id, { x: p.x, y: p.y });
+    for (const p of current) touchLog.set(p.id, { x: p.x, y: p.y });
     if (kind === 'start') {
       for (const p of changed) {
         const i = circleAt(p.x, p.y);
